@@ -15,30 +15,26 @@ version 0.3
 
 usage: java -jar freemarker-gen.jar
  -a,--vars <arg>             vars input file path
- -f,--function-dir <arg>     Function dir
- -g,--groovy-lib-dir <arg>   groovy lib path
+ -t,--template <arg>         freemarker template file
+ -x,--xml-input <arg>        xml input filepath
  -j,--json-input <arg>       json input filepath
  -o,--output <arg>           output file
+ -f,--function-dir <arg>     Function dir
+ -g,--groovy-lib-dir <arg>   groovy lib path
  -r,--resolve <arg>          outputfile with resolved variables
  -s,--xsd-schema <arg>       xsd schema filepath
- -t,--template <arg>         freemarker template file
- -v,--validate               validate resulting file add schema if
-                             applicable
- -x,--xml-input <arg>        xml input filepath
+ -v,--validate               validate resulting xml file
 ```
 
 You can use either the xml-input or the json-input, never both.
-The xml and json datastructures are made available through
-
-- `payload`         this is a json string that can be parsed to a jsonmap.
-- `payloadElement`  this is the objectrepresentation for the xml data structure.
+The xml dom is made available through `payloadElement`  this is the objectrepresentation for the xml data structure.
 
 ## Debugging
 When an error occurs in the template all known variables are dumped in the output file.
 This way the user has an insight what the variables contained at the time of the error.
 
 Also ther is a possibility to make the tool dump all variables at a specific point by adding
-`${DEBUG}` at some point in your template. Then all variables are dumped in the outputfile at the 
+`${DEBUG()}` at some point in your template. Then all variables are dumped in the outputfile at the 
 point of the DEBUG statement.
 
 You may add a variable to the DEBUG statement so only that variable is dumped to your output file.
@@ -64,63 +60,96 @@ DEBUG -> {"DebugVariables":{"i":"NUL0"}}
 ```
 For simple variable structures the :l is more preferable.
 
-## tunnelsvariables
+## tunnelvariables or templatevariables
 
-You can add your tunnelvars to the vars.txt properties file
+You can add your tunnelvars to the `vars.properties` file
+You may also use concatenation of tunnelvars to create a new variable.
 
+``name=const://testtunnelvar://extension`` is invalid
+
+### constant variables
 ``name=value`` or ``name=const://value``
 
+### file content
 Use the content of a file as the value:
 
 ``name=file://filepath``
 
-At this moment concatenation of tunnelvars is also allowed.
+### tunnelfunctions
 
-``name=const://valueconst://test`` is invalid
+You may use functions in your template by first adding the definition to the properties file.
+The value is then the file path to the script.
 
-## tunnelfunctions
+``function://name=groovy://script.groovy``
 
-You may use tunnelfunctions by adding these to the vars.txt properties file.
+The groovy script has all the tunnelvars available as variables 
+and also accepts parameters from you freemarker template. 
+These parameters can be just a string or another tunnelvar.
 
-``function://name=value``
-
-Or use a groovy script, the value is then the file path to the script.
-
-``function://name=groovy://filepath``
-
-The groovy script has all the tunnelvars available as variables and also accepts parameters from you freemarker template. These parameters can be just a string or another tunnelvar.
+so in your template use the tunnelfunction like this;
 
 ``${tunnelFunction("helloworld",myname)}``
+
+⚠️When the tunnelfunction is used from the freemarker template the groovy script is then executed. The groovy engine in FreemarkerGen has no access to any OpenTunnel specific classes
+so in the case you do use specific OT classes. The solution to this is to create a java library (jar) with the dummy/mock versions of these classes.
 
 When you might need java jar libraries you may place them in a directory and use the -g option to define the path to that directory. The FreemarkerGen scans and load all jar files in that directory.
 
 Look below for an example groovy script.
 
-## XPath and jsonpath
+### XPath and jsonpath
 
-When working with xml input files you may also use the xpath:// directive. ``varname=xpath://ns:element`` It should work just like in opentunnel.
-The jsonpath works just like the xpath, the json payload is first transformed to an xml structure and then the xpath is resolved.
+When working with xml or json input files you may also use the xpath:// or jsonpath:// directive. ``varname=xpath://ns:element`` It should work just like in opentunnel.
+The jsonpath works just like the xpath, the json payload is first transformed to a xml-object model and then the jsonpath (xpath) is resolved.
 
+### xmlnx  xml namespace
+When using xpath variables, you may need to add the `xmlns://` as well.
 
-When the groovy tunnelfunction is used from the freemarker template the groovy script is then executed. The groovy engine has no access to any OpenTunnel specific classes 
-so in the case you do use specific OT classes you can not test your groovy scripts using this tool.
+`xmlns://soap=http://schemas.xmlsoap.org/soap/envelope/`
 
-## attachments
+you can then use the namespace in your xpath variables.
 
-You may use attachements from the vars.txt properties file. You can just add a specific value to them or use the content of a specific file.
+When using xpath from your template you need to add the xmlnamespace in the template ftl header as well.
+
+```
+<#ftl ns_prefixes={"e":"http://example.com/ebook"}>
+```
+
+### attachments
+
+You may use attachments from the properties file. You can just add a specific value to them or use the content of a specific file.
 
 ``attachment://name=file://filepath``
 
 ``attachment://name=value``
 
-## multipart formdata
+The attachment is then available through the `form.attachment.1`
 
-Multipart formdata that is not a file attachment is parsed as a ``url_`` tunnelvar. You may use a file or a vaue to parse.
+### multipart formdata
+
+Multipart formdata that is not a file attachment is parsed as a ``url_`` tunnelvar. You may use a file or a value to parse.
 
 ``url_name=file://filepath``
 
 ``url_name=value``
+
+### expressions (Not OpenTunnel compatible)
+For convenience there is also the posibility to use expressions. 
+The expressions are based on a java like syntax.
  
+```ftl
+hello=test
+expr=expression://hello.length
+```
+
+expr is then resolver to 4
+
+```aidl
+expr=expression://hello.length + 10
+```
+
+epr = 14
+
  
 ## vars.txt properties file
 
